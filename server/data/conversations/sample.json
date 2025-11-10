@@ -1,0 +1,27 @@
+{
+  "id": "sample-1",
+  "topic": "Welcome to LLM Roundtable",
+  "summary": "Demonstrates how agents collaborate in a roundtable discussion.",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "messages": [
+    {
+      "id": "sample-msg-1",
+      "author": "Moderator",
+      "content": "Let's explore how multiple LLM agents can brainstorm together.",
+      "timestamp": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "sample-msg-2",
+      "author": "Researcher",
+      "content": "I'll gather background context and relevant facts for the team.",
+      "timestamp": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "sample-msg-3",
+      "author": "Strategist",
+      "content": "I'll convert findings into an actionable plan once we have enough data.",
+      "timestamp": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}
