@@ -17,6 +17,7 @@
 - Centralize OpenRouter API interactions in dedicated service modules to simplify mocking and future rate-limit handling.
 - Validate and sanitize JSON payloads returned by models before persisting or rendering them.
 - Persist data strictly as files under the `server/` directory. Do not rely on localStorage, in-memory caches, or other storage backends so that all conversations and configuration can be inspected directly via the filesystem.
+- Do not add mocked network integrations or placeholder responses in production code paths—surface explicit errors when upstream services are unavailable instead.
 
 ## Testing & Tooling
 - Add automated tests alongside new features where feasible (unit, integration, or end-to-end).

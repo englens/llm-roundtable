@@ -1,59 +1,111 @@
 # LLM Roundtable
 
-LLM Roundtable is a local-first web application for orchestrating structured, multi-agent conversations across large language models (LLMs) exposed through the [OpenRouter](https://openrouter.ai/) API. The app lets you define a cast of bots—each with its own persona and system prompt—then observe or intervene as they exchange messages, request responses from one another, and optionally involve a moderator model that curates the flow of discussion.
+LLM Roundtable is a local-first web application for orchestrating structured, multi-agent conversations across large language models (LLMs) exposed through the [OpenRouter](https://openrouter.ai/) API. The application coordinates a cast of specialized bots, tracks their discussion, and surfaces an interaction graph so humans can audit or intervene in the flow of ideas.
 
-## Core Concepts
+> **Status:** This repository now ships a first-pass experience with a React front end (Vite + Tailwind CSS) and an Express-based backend. The backend talks directly to OpenRouter for live roundtable generation.
 
-### Bots
-- **Identity**: Each bot has a human-friendly name.
-- **Model**: Each bot is powered by an OpenRouter model, referenced by its model ID string.
-- **System prompt**: A persona and role description that frames the bot's behavior when generating responses.
-- **Output contract**: Bots respond in JSON, specifying message content, intended recipients, and possibly other metadata.
+## Architecture Overview
 
-### Conversation Flow Modes
-1. **Step Mode** (default): After a bot speaks, the user manually advances the conversation to the next participant based on the bot's suggested recipient list.
-2. **Auto Mode**: The application automatically advances the conversation following the suggested recipients without requiring user confirmation between turns.
-3. **Moderator Mode**: A dedicated moderator bot (also configured with a model ID and system prompt) inspects each bot's JSON output and authoritatively selects the next participant. Suggestions in bot outputs become advisory; the moderator's decision controls the turn order.
+| Layer      | Stack / Location         | Responsibilities |
+|------------|--------------------------|------------------|
+| Front end  | React 18, Vite, Tailwind (`frontend/`) | Render the conversation transcript, interaction graph, and roundtable list. Communicates with the backend through a REST API and keeps data fresh with React Query. |
+| Backend    | Node.js, Express (`server/`) | Exposes JSON endpoints for listing and creating conversations, coordinates (future) OpenRouter requests via a dedicated service, and persists conversations as JSON files. |
+| Persistence | File-based (`server/data/conversations/`) | Each conversation is stored as a standalone JSON document so histories can be inspected or versioned directly from disk. |
 
-### Interaction Surface
-- **Top Bar**
-  - Save and load conversations (including bot definitions and full history) to enable perfect replay.
-  - Access bot setup, persona editing, and management tools.
-- **Main Content**
-  - **Conversation Column**: A group-chat style transcript showing messages, recipients, and metadata.
-  - **Interaction Graph**: A dynamic visualization of active participants (including the user) with directional edges indicating who addressed whom during the conversation.
-- **Bottom Bar**
-  - User input box and send button for joining the dialogue.
-  - Controls for revealing system prompts, previewing the exact payloads sent to OpenRouter, choosing conversation mode, and triggering manual "Step" advances.
+### API Surface
 
-## Data Model & Persistence
-- Conversations encapsulate:
-  - Bot roster (names, model IDs, system prompts, order of play).
-  - Message history, including JSON metadata and timestamps.
-  - Configuration for control mode (step, auto, moderator) and moderator settings if applicable.
-- Saved conversation files should be sufficient to fully reconstruct the state of the UI and resume or replay any session.
-- All persisted artifacts live under the `server/` directory as human-readable files so settings and history can be audited outside the app.
+The backend mounts all endpoints under `/api`.
 
-## Planned Functionality
-- Local web UI built with modern front-end tooling (framework TBD).
-- Backend service for coordinating API calls to OpenRouter and normalizing JSON responses.
-- Visualization layer for rendering the conversation graph in real time.
-- Error handling for malformed JSON outputs and recovery prompts to keep the roundtable on track.
-- Hooks for user intervention, allowing the human to step in, send manual messages, or override turn order.
+- `GET /api/conversations` — Returns `{ conversations: ConversationSummary[] }` from the file store.
+- `POST /api/conversations` — Accepts `{ topic: string, prompt: string }`, requests a fresh roundtable from OpenRouter via `openRouterService`, persists it to disk, and responds with the saved conversation payload.
+- `GET /api/health` — Lightweight health check returning `{ status: "ok" }`.
+
+The OpenRouter service lives in `server/src/services/openRouterService.js`. All remote model interactions (and future authentication, validation, retry logic) should flow through this module to simplify testing and mocking.
+
+### Data Model
+
+Conversations are stored on disk using the following JSON contract:
+
+```json
+{
+  "id": "string",
+  "topic": "string",
+  "summary": "string",
+  "createdAt": "ISO-8601 timestamp",
+  "updatedAt": "ISO-8601 timestamp",
+  "messages": [
+    {
+      "id": "string",
+      "author": "string",
+      "content": "string",
+      "timestamp": "ISO-8601 timestamp"
+    }
+  ]
+}
+```
+
+Additional metadata (e.g., bot roster, control modes) can be added later without breaking the current UI as long as the required fields above remain present.
 
 ## Getting Started
-Implementation work has not yet begun. Early tasks include:
-1. Select the front-end stack (e.g., React, Svelte, Vue) and initialize the project scaffold.
-2. Define the backend architecture for OpenRouter interactions and conversation state management.
-3. Formalize the JSON response schema and validation strategy for bot outputs.
-4. Design the save/load file format for conversations.
 
-Refer to `AGENTS.md` for repository-specific contribution guidelines (coding conventions, tooling expectations, and screenshot requirements for UI changes).
+### Prerequisites
 
-As the codebase evolves, this README should expand to cover installation steps, development workflows, API documentation, and testing guidance.
+- Node.js 18+
+- npm 9+
+
+### Install Dependencies
+
+```bash
+cd frontend && npm install
+cd ../server && npm install
+```
+
+### Run the Development Servers
+
+In one terminal, start the API:
+
+```bash
+npm --prefix server run dev
+```
+
+> **Environment variables:** The API requires `OPENROUTER_API_KEY` to be present in the environment before new conversations can be created. Optional overrides include `OPENROUTER_MODEL`, `OPENROUTER_API_URL`, `OPENROUTER_REFERRER`, and `OPENROUTER_TITLE`. You can export these in your shell or create a `.env` file that your process manager loads.
+
+In a second terminal, start the front end:
+
+```bash
+npm --prefix frontend run dev
+```
+
+The React app will be available at [http://localhost:5173](http://localhost:5173) and proxies API calls to `http://localhost:4000`.
+
+## Front-End Walkthrough
+
+The React application renders three primary regions:
+
+1. **Conversation List** — Displays the available roundtables and highlights the active one.
+2. **Conversation Pane** — Shows the transcript for the selected conversation, including participant names and timestamps.
+3. **Interaction Graph Preview** — Presents a scaffold for visualizing agent relationships (currently rendered as summary cards).
+
+React Query handles data fetching and caching, while Axios wraps REST calls in `frontend/src/services/apiClient.ts`.
+
+## Backend Walkthrough
+
+- `server/src/index.js` wires up Express, CORS, JSON parsing, and logging.
+- `server/src/routes/conversations.js` exposes REST handlers for listing and creating conversations.
+- `server/src/storage/conversationStore.js` persists conversations to `server/data/conversations/` using deterministic filenames and ISO timestamps.
+- `server/src/services/openRouterService.js` is the single integration point for OpenRouter. It orchestrates real API calls, validates responses, and normalises the conversation payload before persistence.
+
+## Testing & Future Work
+
+- Add automated tests around the conversation store and API routes.
+- Implement full OpenRouter connectivity with schema validation for JSON outputs.
+- Extend the interaction graph with a dynamic visualization library (e.g., D3, VisX).
+- Introduce user controls for adding agents, stepping through conversations, and exporting histories.
+
+## Screenshots
+
+UI changes require updated screenshots; see the `docs/` directory (to be added in subsequent updates) for the most recent captures.
 
 ## Contributing
-Contributions are welcome once the project skeleton is in place. Please include clear documentation, adhere to repository coding standards, and add tests where applicable.
 
-## License
-License information has not been specified yet. Add a license file before distributing or accepting external contributions.
+Contributions are welcome! Please follow the conventions outlined in `AGENTS.md`, add tests where possible, and keep documentation current with any workflow changes.
