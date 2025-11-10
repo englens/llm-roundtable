@@ -8,7 +8,7 @@ LLM Roundtable is a local-first web application for orchestrating structured, mu
 - **Identity**: Each bot has a human-friendly name.
 - **Model**: Each bot is powered by an OpenRouter model, referenced by its model ID string.
 - **System prompt**: A persona and role description that frames the bot's behavior when generating responses.
-- **Output contract**: Bots respond in JSON, specifying message content, intended recipients, optional private asides, and suggestions for the next speaker.
+- **Output contract**: Bots respond in JSON, specifying message content, intended recipients, and possibly other metadata.
 
 ### Conversation Flow Modes
 1. **Step Mode** (default): After a bot speaks, the user manually advances the conversation to the next participant based on the bot's suggested recipient list.
