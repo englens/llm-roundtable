@@ -16,3 +16,14 @@ export interface ConversationSummary {
 export interface ConversationResponse {
   conversations: ConversationSummary[];
 }
+
+export interface OpenRouterConfig {
+  model: string;
+  hasApiKey: boolean;
+}
+
+export interface OpenRouterConfigUpdate {
+  model?: string;
+  apiKey?: string;
+  clearApiKey?: boolean;
+}
