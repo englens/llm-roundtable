@@ -1,16 +1,16 @@
 import { nanoid } from 'nanoid';
+import { openRouterConfigStore } from '../storage/openRouterConfigStore.js';
 
-const OPENROUTER_API_URL = process.env.OPENROUTER_API_URL?.trim() || 'https://openrouter.ai/api/v1/chat/completions';
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL?.trim() || 'openrouter/llama-3.1-70b-instruct';
-const OPENROUTER_REFERRER = process.env.OPENROUTER_REFERRER?.trim() || 'http://localhost';
-const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE?.trim() || 'LLM Roundtable';
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const DEFAULT_REFERRER = 'http://localhost';
+const DEFAULT_TITLE = 'LLM Roundtable';
 
-function assertApiKey() {
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY is required to create new roundtables.');
+async function loadConfiguration() {
+  const config = await openRouterConfigStore.read();
+  if (!config.apiKey) {
+    throw new Error('OpenRouter API key is not configured. Please add it via the settings panel.');
   }
-  return apiKey;
+  return config;
 }
 
 function extractJsonPayload(content) {
@@ -55,7 +55,7 @@ function normaliseMessages(rawMessages = []) {
 }
 
 async function createRoundtable({ topic, prompt }) {
-  const apiKey = assertApiKey();
+  const config = await loadConfiguration();
 
   const systemPrompt = `You orchestrate expert multi-agent discussions for humans. Produce a JSON object with the keys "summary" (string) and "messages" (array). Each message must be an object with "author", "content", and optional "timestamp" fields. Respond with ONLY JSON. No markdown, no commentary.`;
 
@@ -64,13 +64,13 @@ async function createRoundtable({ topic, prompt }) {
   const response = await fetch(OPENROUTER_API_URL, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': OPENROUTER_REFERRER,
-      'X-Title': OPENROUTER_TITLE
+      'HTTP-Referer': DEFAULT_REFERRER,
+      'X-Title': DEFAULT_TITLE
     },
     body: JSON.stringify({
-      model: OPENROUTER_MODEL,
+      model: config.model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }

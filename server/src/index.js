@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import conversationsRouter from './routes/conversations.js';
+import configRouter from './routes/config.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -11,6 +12,7 @@ app.use(express.json());
 app.use(morgan('dev'));
 
 app.use('/api/conversations', conversationsRouter);
+app.use('/api/config', configRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });

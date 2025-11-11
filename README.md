@@ -10,7 +10,7 @@ LLM Roundtable is a local-first web application for orchestrating structured, mu
 |------------|--------------------------|------------------|
 | Front end  | React 18, Vite, Tailwind (`frontend/`) | Render the conversation transcript, interaction graph, and roundtable list. Communicates with the backend through a REST API and keeps data fresh with React Query. |
 | Backend    | Node.js, Express (`server/`) | Exposes JSON endpoints for listing and creating conversations, coordinates (future) OpenRouter requests via a dedicated service, and persists conversations as JSON files. |
-| Persistence | File-based (`server/data/conversations/`) | Each conversation is stored as a standalone JSON document so histories can be inspected or versioned directly from disk. |
+| Persistence | File-based (`server/data/`) | Conversation histories live under `server/data/conversations/` while the selected OpenRouter model and API key are stored in `server/data/openrouter.json`. |
 
 ### API Surface
 
@@ -19,6 +19,8 @@ The backend mounts all endpoints under `/api`.
 - `GET /api/conversations` — Returns `{ conversations: ConversationSummary[] }` from the file store.
 - `POST /api/conversations` — Accepts `{ topic: string, prompt: string }`, requests a fresh roundtable from OpenRouter via `openRouterService`, persists it to disk, and responds with the saved conversation payload.
 - `GET /api/health` — Lightweight health check returning `{ status: "ok" }`.
+- `GET /api/config/openrouter` — Returns the stored OpenRouter configuration (without exposing the API key value).
+- `PUT /api/config/openrouter` — Persists updates to the OpenRouter configuration, including optionally replacing or clearing the stored API key.
 
 The OpenRouter service lives in `server/src/services/openRouterService.js`. All remote model interactions (and future authentication, validation, retry logic) should flow through this module to simplify testing and mocking.
 
@@ -68,7 +70,7 @@ In one terminal, start the API:
 npm --prefix server run dev
 ```
 
-> **Environment variables:** The API requires `OPENROUTER_API_KEY` to be present in the environment before new conversations can be created. Optional overrides include `OPENROUTER_MODEL`, `OPENROUTER_API_URL`, `OPENROUTER_REFERRER`, and `OPENROUTER_TITLE`. You can export these in your shell or create a `.env` file that your process manager loads.
+When the backend starts for the first time it will create `server/data/openrouter.json` with a default model and an empty API key slot. You can edit both values directly in the app via the compact **OpenRouter** controls in the top bar (or by updating the JSON file manually if you prefer).
 
 In a second terminal, start the front end:
 
@@ -80,9 +82,9 @@ The React app will be available at [http://localhost:5173](http://localhost:5173
 
 ## Front-End Walkthrough
 
-The React application renders three primary regions:
+The React application renders a persistent top bar and two primary content panes:
 
-1. **Conversation List** — Displays the available roundtables and highlights the active one.
+1. **Header** — A compact toolbar that surfaces the conversation list (highlighting the active roundtable and showing status) alongside OpenRouter configuration controls.
 2. **Conversation Pane** — Shows the transcript for the selected conversation, including participant names and timestamps.
 3. **Interaction Graph Preview** — Presents a scaffold for visualizing agent relationships (currently rendered as summary cards).
 
@@ -93,7 +95,8 @@ React Query handles data fetching and caching, while Axios wraps REST calls in `
 - `server/src/index.js` wires up Express, CORS, JSON parsing, and logging.
 - `server/src/routes/conversations.js` exposes REST handlers for listing and creating conversations.
 - `server/src/storage/conversationStore.js` persists conversations to `server/data/conversations/` using deterministic filenames and ISO timestamps.
-- `server/src/services/openRouterService.js` is the single integration point for OpenRouter. It orchestrates real API calls, validates responses, and normalises the conversation payload before persistence.
+- `server/src/services/openRouterService.js` is the single integration point for OpenRouter. It orchestrates real API calls, validates responses, and normalises the conversation payload before persistence. Credentials and defaults are loaded from `server/data/openrouter.json` via the config store so they can be managed at runtime without environment variables.
+- `server/src/storage/openRouterConfigStore.js` persists the OpenRouter model choice and API key, exposing helpers for the REST API and the service layer.
 
 ## Testing & Future Work
 
